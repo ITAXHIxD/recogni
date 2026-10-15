@@ -1,0 +1,30 @@
+# Local secrets and overrides
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# JavaScript
+node_modules/
+.next/
+dist/
+coverage/
+
+# Local runtime data and media
+data/local/
+uploads/
+exports/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
