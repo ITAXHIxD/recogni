@@ -2,52 +2,62 @@
 
 ## Design direction
 
-Start with a small monorepo and three deployable parts: a web app, an API service, and a background worker. Keep the API and worker in one Python codebase initially so media-processing logic can be reused without introducing a separate service boundary.
+Start with one monorepo and three deployable parts: an editor-facing web app, an API service, and a background worker. Keep the API and worker in one Python codebase initially. Put provider-specific AI behavior behind adapters so Ollama, Gemini, and additional supported APIs can evolve independently of the workflow.
 
 Recommended starting stack:
 
-- Web: React with TypeScript (Next.js unless deployment requirements point elsewhere).
+- Web: React with TypeScript.
 - API and worker: Python with FastAPI and a Redis-backed task queue.
 - Metadata: PostgreSQL.
-- Movie uploads, frame thumbnails, and exported clips: S3-compatible object storage.
-- Media inspection and cutting: FFprobe and FFmpeg.
+- Source movies, derived frames, and exports: private S3-compatible object storage.
+- Media inspection, scene preparation, and compilation: FFprobe and FFmpeg.
 - Local development: Docker Compose for PostgreSQL, Redis, and object storage.
 
-These are starting choices, not requirements inferred from the diagram. Keep the character-detection and embedding implementation behind a worker interface; the project context does not identify a model or provider.
+The recognition model and exact provider protocol are not selected. Implement them behind stable interfaces rather than coupling job logic to one vendor.
 
 ## Components and responsibilities
 
-- **Web app**: movie selection, upload progress, job status, results review and correction, export selection, and download links.
-- **API service**: validate requests and uploaded media, create analysis and export jobs, expose workflow status and results, and authorize access to project assets.
-- **Worker**: probe media, decode/sample frames, detect and associate character appearances, persist timestamped results, and render requested clips.
-- **PostgreSQL**: users/projects when defined, media metadata, jobs, workflow state, detection/track records, review edits, and export metadata.
-- **Object storage**: original uploads, derived thumbnails, and exports. Store references and checksums in PostgreSQL; do not put media binaries in Git.
-- **Redis/task queue**: dispatch long-running analysis and export jobs and communicate progress.
+- **Web app**: movie selection and upload, provider/model configuration, analysis progress, scene and character review, corrections, export controls, and downloads.
+- **API service**: validate requests and uploaded media, create analysis/export jobs, manage workflow state and provider configuration, expose results, and authorize project assets.
+- **Worker**: inspect video, derive scene candidates and timecoded frame context, call the selected provider adapter, validate and persist analysis, then compile character videos.
+- **Provider adapters**: normalize provider configuration and structured responses. Start with Ollama and Gemini adapters. Add a generic API adapter only for explicit supported protocols; arbitrary APIs need provider-specific authentication and media capabilities.
+- **PostgreSQL**: projects when defined, media metadata, provider references, jobs, scenes, character groups, review edits, segment timecodes, and export metadata.
+- **Object storage**: original movies, sampled frames/thumbnails, and rendered character compilations. Store references and checksums in PostgreSQL; never store video binaries in Git.
+- **Redis/task queue**: dispatch long-running analysis and export work and communicate progress.
 
-## Data and job flow
+## Analysis and export flow
 
-1. The web app requests an upload and sends the movie to object storage using a short-lived upload authorization from the API.
-2. The API verifies the upload exists, probes it with FFprobe, checks configured size/duration/container limits, and records a validated media asset.
-3. The API creates an analysis job and queues it. The web app polls or subscribes to job progress.
-4. The worker samples frames, runs the replaceable recognition pipeline, and stores timestamped appearances and derived thumbnails.
-5. The API serves reviewable results. User corrections are stored as review data; do not overwrite raw detections.
-6. An export request creates a separate job. The worker renders clips from the source movie with FFmpeg and writes them to object storage.
-7. The API marks the export complete only after the stored output has been verified and returns an authorized download link.
+1. The web app requests an upload and transfers the movie to private object storage using short-lived authorization from the API.
+2. The API verifies the upload, probes it with FFprobe, applies configured size/duration/container limits, and records the media asset.
+3. The user selects a provider and model. The API creates an analysis job with a reference to the selected provider configuration.
+4. The worker detects candidate scene boundaries, prepares timecoded visual context, and calls the selected adapter. If the provider accepts only images, send sampled frames; if it supports video, use its supported video input and limits.
+5. Validate the provider response as structured scene ranges and character appearances. Reject or flag timestamps outside the source duration. Save raw analysis separately from user review edits.
+6. The web app presents scenes grouped by character. The editor can rename characters, correct assignments, and remove or add scene membership before export.
+7. An export job gathers each selected character’s scene ranges in chronological order, applies confirmed padding/audio/output rules, and renders one video compilation per character with FFmpeg.
+8. Verify every output, store it privately, and provide the editor with a download link and a manifest mapping output segments back to source timecodes.
+
+## Provider configuration and privacy
+
+- Support local Ollama and remote Google Gemini as separate adapters; make local versus cloud processing clear in the UI.
+- Keep credentials server-side. Encrypt user-provided API keys at rest, restrict access by project/user when that model is defined, redact secrets from logs, and never return keys to the browser after submission.
+- Do not send an entire movie to a remote provider by default. Prepare only the media context required by the selected provider, show what will be sent, and honor that provider’s limits and privacy settings.
+- Store provider/model identifiers and safe request metadata with each job, not raw secrets.
+- Make provider failure, rate limits, unsupported media, and malformed output visible and retryable without losing the uploaded movie or review work.
 
 ## Workflow state
 
-Model analysis and export as separate jobs. Suggested analysis states: `uploaded`, `validating`, `validation_failed`, `queued`, `processing`, `results_ready`, `failed`, `cancelled`. Suggested export states: `queued`, `processing`, `completed`, `failed`, `cancelled`.
+Keep analysis and export as separate jobs. Suggested analysis states: `uploaded`, `validating`, `queued`, `processing`, `results_ready`, `failed`, `cancelled`. Validation failure should return the user to movie selection with a reason. Suggested export states: `queued`, `processing`, `completed`, `failed`, `cancelled`.
 
-Persist state transitions and timestamps. Make job creation and retries idempotent. A worker retry must not duplicate results or exports. Keep progress events small and avoid exposing local paths or internal storage credentials.
+Persist state transitions and timestamps. Make job creation and retries idempotent. A retry must not duplicate scene records or exports. Treat provider responses and uploaded media as untrusted input.
 
 ## Initial repository structure
 
 ```
 apps/
-  web/                    React/TypeScript user interface
+  web/                    React/TypeScript editor interface
 services/
   api/                    FastAPI endpoints and workflow orchestration
-  worker/                 Background analysis and export jobs
+  worker/                 Background media analysis and compilation
 packages/
   contracts/              OpenAPI schemas and generated web client types
 infra/
@@ -57,18 +67,18 @@ docs/
   architecture.md
 ```
 
-Keep this as one repository. Split services into separate repositories only if ownership, deployment, or scaling needs justify it.
+Keep this as one repository. Split services only if ownership, deployment, or scaling needs justify it.
 
 ## Security and reliability baseline
 
-- Enforce upload size, duration, and accepted-media limits in configuration.
+- Enforce configured upload size, duration, and accepted-media limits.
 - Validate actual media content with FFprobe; do not trust filenames or browser MIME types.
-- Treat uploaded movies and derived files as untrusted; isolate processing and avoid shell interpolation.
-- Keep media private by default and issue short-lived authorized download links.
-- Keep secrets out of source control; commit an example environment file only when implementation starts.
-- Record failure reasons safe for users separately from internal diagnostics.
-- Add authentication, retention, quotas, and multi-user authorization once the product’s user model is defined.
+- Isolate media processing and avoid shell interpolation.
+- Keep movies and exports private; issue short-lived authorized download links.
+- Encrypt API credentials, keep secrets out of client code and logs, and exclude local media from Git.
+- Separate user-safe failure messages from internal diagnostics.
+- Define retention, quotas, authentication, and multi-user authorization before offering shared projects.
 
 ## Open decisions before implementation
 
-Confirm supported formats and upload limits, what “character” recognition means, clip boundaries and output formats, single-user versus multi-user access, storage retention, deployment target, and whether face data needs special privacy handling. The first implementation should be a vertical slice: upload and validate one movie, enqueue a job, show progress, and persist a small set of timestamped results before selecting a production model.
+Confirm accepted video formats and limits, exact provider protocols and model configuration, scene-boundary padding, whether compilations keep source audio, output formats/quality, export naming/packaging, and collaboration/account requirements. The first vertical slice should upload and validate a movie, analyze one selected provider’s timecoded scene/character output, let the editor correct it, and export a single character compilation with a source-timecode manifest.
