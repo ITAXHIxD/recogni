@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
     QApplication, QFileDialog, QFrame, QLabel, QListWidget, QMainWindow,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
-from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video
+from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video\nfrom recogni.scenes import Scene, SceneDetectionError, detect_scenes
 from recogni.scenes import Scene, SceneDetectionError, detect_scenes
 
 
-class MediaWorker(QObject):
+def format_scene_time(seconds: float) -> str:\n    """Show sub-second boundaries so short scenes remain distinguishable."""\n    milliseconds = max(0, round(seconds * 1000))\n    hours, remainder = divmod(milliseconds, 3_600_000)\n    minutes, remainder = divmod(remainder, 60_000)\n    whole_seconds, millis = divmod(remainder, 1000)\n    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{millis:03d}"\n\n\nclass MediaWorker(QObject):
     succeeded = Signal(object)
     failed = Signal(str)
     finished = Signal()
@@ -167,8 +167,8 @@ class MainWindow(QMainWindow):
     def _show_scenes(self, scenes: list[Scene]):
         for i, scene in enumerate(scenes, 1):
             self.scene_list.addItem(
-                f"Scene {i:03d}    {format_duration(scene.start_seconds)} → "
-                f"{format_duration(scene.end_seconds)}    ({scene.duration_seconds:.2f} s)"
+                f"Scene {i:03d}    {format_scene_time(scene.start_seconds)} → "
+                f"{format_scene_time(scene.end_seconds)}    ({scene.duration_seconds:.2f} s)"
             )
         self.status.setText(f"Scene detection complete · {len(scenes)} scenes")
         self.details.setText("Review the timestamps before editing. Rapid flashes may create extra cuts.")
