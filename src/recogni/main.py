@@ -9,11 +9,20 @@ from PySide6.QtWidgets import (
     QApplication, QFileDialog, QFrame, QLabel, QListWidget, QMainWindow,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
-from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video\nfrom recogni.scenes import Scene, SceneDetectionError, detect_scenes
+from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video
 from recogni.scenes import Scene, SceneDetectionError, detect_scenes
 
 
-def format_scene_time(seconds: float) -> str:\n    """Show sub-second boundaries so short scenes remain distinguishable."""\n    milliseconds = max(0, round(seconds * 1000))\n    hours, remainder = divmod(milliseconds, 3_600_000)\n    minutes, remainder = divmod(remainder, 60_000)\n    whole_seconds, millis = divmod(remainder, 1000)\n    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{millis:03d}"\n\n\nclass MediaWorker(QObject):
+def format_scene_time(seconds: float) -> str:
+    """Show millisecond precision so short scene boundaries remain distinguishable."""
+    milliseconds = max(0, round(seconds * 1000))
+    hours, remainder = divmod(milliseconds, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    whole_seconds, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{millis:03d}"
+
+
+class MediaWorker(QObject):
     succeeded = Signal(object)
     failed = Signal(str)
     finished = Signal()
@@ -128,7 +137,10 @@ class MainWindow(QMainWindow):
         if self._metadata is None:
             return
         self.scene_list.clear()
-        self._set_busy("Detecting scene cuts…", "Scanning locally with FFmpeg. This detects visual cuts, not character identities.")
+        self._set_busy(
+            "Detecting scene cuts…",
+            "Scanning locally with FFmpeg. This detects visual cuts, not character identities.",
+        )
         self._start_worker(
             detect_scenes, (self._metadata.path, self._metadata.duration_seconds),
             self._show_scenes,
