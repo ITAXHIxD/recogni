@@ -18,14 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from recogni.media import MediaMetadata, MediaValidationError, probe_video
-
-
-def format_duration(seconds: float) -> str:
-    total = max(0, int(seconds))
-    hours, remainder = divmod(total, 3600)
-    minutes, secs = divmod(remainder, 60)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video
 
 
 class ProbeWorker(QObject):
