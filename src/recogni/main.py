@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Signal
-from PySide6.QtWidgets import (
+from PySide6.QtWidgets import (\n    QListWidget,
     QApplication,
     QFileDialog,
     QFrame,
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video
+from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video\nfrom recogni.scenes import Scene, SceneDetectionError, detect_scenes
 
 
 class ProbeWorker(QObject):
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self.resize(960, 640)
         self.setMinimumSize(760, 520)
         self._thread: QThread | None = None
-        self._worker: ProbeWorker | None = None
+        self._worker: QObject | None = None\n        self._metadata: MediaMetadata | None = None
 
         root = QWidget()
         root.setObjectName("root")
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         hero_layout.addWidget(self.status)
         hero_layout.addWidget(self.details)
         hero_layout.addSpacing(8)
-        hero_layout.addWidget(self.select_button, 0)
+        self.analyze_button = QPushButton("Detect scenes")\n        self.analyze_button.setObjectName("secondaryButton")\n        self.analyze_button.setEnabled(False)\n        self.analyze_button.clicked.connect(self.analyze_scenes)\n        hero_layout.addWidget(self.select_button, 0)\n        hero_layout.addWidget(self.analyze_button, 0)\n\n        self.scene_heading = QLabel("Detected scenes")\n        self.scene_heading.setObjectName("sectionTitle")\n        self.scene_list = QListWidget()\n        self.scene_list.setObjectName("sceneList")\n        self.scene_list.setMinimumHeight(150)
 
         footer = QLabel("LOCAL-FIRST • PYTHON • WINDOWS DESKTOP")
         footer.setObjectName("footer")
@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
                 font-weight: 700;
                 min-width: 130px;
             }
-            QPushButton#primaryButton:hover { background: #a0f4ec; }
+            QPushButton#primaryButton:hover { background: #a0f4ec; }\n            QPushButton#secondaryButton { background: #263b45; color: #d8f7f5; border: 1px solid #42636b; }\n            QLabel#sectionTitle { font-size: 17px; font-weight: 600; }\n            QListWidget#sceneList { background: #171f27; border: 1px solid #2b414c; border-radius: 10px; padding: 8px; }\n            QListWidget::item { padding: 8px; border-bottom: 1px solid #26343d; }
             QPushButton#primaryButton:disabled {
                 background: #41575b;
                 color: #aebdc7;
