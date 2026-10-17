@@ -47,8 +47,15 @@ def detect_scenes(path: str | Path, duration_seconds: float, *,
                "-vf", f"select='gt(scene,{threshold})',showinfo",
                "-an", "-sn", "-dn", "-f", "null", "-"]
     try:
-        result = subprocess.run(command, capture_output=True, text=True,
-                                timeout=timeout_seconds, shell=False)
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_seconds,
+            shell=False,
+        )
     except subprocess.TimeoutExpired as exc:
         raise SceneDetectionError("Scene detection timed out. Try a shorter video.") from exc
     except OSError as exc:
