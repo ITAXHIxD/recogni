@@ -1,5 +1,4 @@
-from recogni.main import format_duration
-from recogni.media import _parse_rate
+from recogni.media import _parse_rate, format_duration
 
 
 def test_format_duration_uses_hours_minutes_seconds():
