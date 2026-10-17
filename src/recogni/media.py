@@ -30,6 +30,14 @@ class MediaMetadata:
     format_name: str
 
 
+def format_duration(seconds: float) -> str:
+    """Format a duration as HH:MM:SS without importing the desktop GUI."""
+    total = max(0, int(seconds))
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def _parse_rate(value: str | None) -> float | None:
     if not value or value in {"0/0", "N/A"}:
         return None
