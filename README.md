@@ -1,31 +1,60 @@
-# Recogni
+# RECOGNI
 
-Recogni is an AI-assisted movie workflow for editors. It analyzes a movie, separates scenes by the characters that appear in them, and creates one reviewable video compilation per character.
+RECOGNI is a **native Windows desktop application built with Python** for video editors. It is designed to find recurring characters in long-form videos, group their scenes, and export chronological character-specific compilations.
 
-## MVP workflow
+RECOGNI is not a website. The application uses a local desktop GUI and processes local video files on the user's computer by default.
 
-1. Select a movie and an AI provider: local Ollama, Google Gemini, or another supported API.
-2. Validate the movie and provider configuration.
-3. Analyze scenes and timestamped character appearances.
-4. Review and correct scenes and character groupings.
-5. Export one chronological video compilation for each character.
-6. Keep source timecodes available so editors can trace a compilation segment back to the movie.
+## Current implementation
 
-If movie validation fails, explain why and return to movie selection. Analysis and export run as background jobs.
+The first development milestone provides:
 
-## Architecture
+- A native PySide6 desktop window.
+- A local movie file picker.
+- Video validation and metadata extraction through FFprobe.
+- Duration, resolution, frame-rate, audio, and container details.
+- Background media inspection so the UI remains responsive.
+- Clear errors when a file is unsupported, unreadable, or FFprobe is missing.
 
-The initial design separates the web interface, API, background media worker, and AI provider adapters. The worker prepares video and timecoded scene context for the selected provider, then validates the structured analysis before compiling character videos. See [docs/product-scope.md](docs/product-scope.md) and [docs/architecture.md](docs/architecture.md).
+**Character recognition, scene grouping, review controls, and export are not implemented yet.** The current interface does not pretend to perform AI analysis.
 
-## Repository layout
+## Requirements
 
-```
-apps/web/             Editor-facing web interface
-services/api/         HTTP API and workflow orchestration
-services/worker/      Scene analysis and character-video exports
-packages/contracts/   API schemas and generated client types
-infra/local/          Local development services
-docs/                 Product scope and architecture
-```
+- Windows 10/11 (initial target).
+- Python 3.11 or newer.
+- FFmpeg/FFprobe installed and available on PATH.
 
-The repository currently contains design documents only. The recognition pipeline, supported provider protocols, and output settings are still to be implemented and confirmed.
+## Run from source
+
+Open a terminal in the repository root:
+
+    py -3.11 -m venv .venv
+    .\\.venv\\Scripts\\Activate.ps1
+    python -m pip install --upgrade pip
+    python -m pip install -e ".[dev]"
+    python -m recogni.main
+
+If PowerShell blocks virtual-environment activation, run the environment's Python directly:
+
+    .\\.venv\\Scripts\\python.exe -m pip install -e ".[dev]"
+    .\\.venv\\Scripts\\python.exe -m recogni.main
+
+Check FFprobe installation with:
+
+    ffprobe -version
+
+## Tests
+
+    python -m pytest
+
+## Planned processing architecture
+
+- **Desktop UI:** PySide6.
+- **Media tools:** FFmpeg and FFprobe.
+- **Local project data:** SQLite and filesystem-based cache.
+- **AI/ML pipeline:** pluggable local models for scene detection, person/face detection, tracking, and recurring-character grouping.
+- **Provider adapters:** optional integrations such as local Ollama or remote Gemini, clearly marked so users know when media leaves their device.
+- **Export:** chronological FFmpeg compilations with a source-timecode manifest.
+
+The AI model choices will be benchmarked on realistic sample videos and ordinary CPU hardware before being treated as final. Basic media processing and export must not require a paid LLM API key.
+
+See the product scope in docs/product-scope.md and architecture in docs/architecture.md.
