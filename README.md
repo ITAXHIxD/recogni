@@ -13,9 +13,10 @@ The first development milestone provides:
 - Video validation and metadata extraction through FFprobe.
 - Duration, resolution, frame-rate, audio, and container details.
 - Background media inspection so the UI remains responsive.
-- Clear errors when a file is unsupported, unreadable, or FFprobe is missing.
+- Local FFmpeg scene-cut detection with a reviewable, chronological scene interval list.
+- Clear errors when media tools are missing or a file cannot be decoded.
 
-**Character recognition, scene grouping, review controls, and export are not implemented yet.** The current interface does not pretend to perform AI analysis.
+**Character recognition, character grouping, scene trimming, and export are not implemented yet.** Scene cuts are visual-change estimates and may need manual review.
 
 ## Requirements
 
@@ -49,7 +50,7 @@ Check FFprobe installation with:
 ## Planned processing architecture
 
 - **Desktop UI:** PySide6.
-- **Media tools:** FFmpeg and FFprobe.
+- **Media tools:** FFmpeg and FFprobe. FFmpeg's scene score is used for the initial scene-cut detector.
 - **Local project data:** SQLite and filesystem-based cache.
 - **AI/ML pipeline:** pluggable local models for scene detection, person/face detection, tracking, and recurring-character grouping.
 - **Provider adapters:** optional integrations such as local Ollama or remote Gemini, clearly marked so users know when media leaves their device.
