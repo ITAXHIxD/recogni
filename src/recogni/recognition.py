@@ -66,6 +66,9 @@ def _ensure_yunet_model(path: Path) -> Path:
         if temporary.stat().st_size < 100_000:
             raise RecognitionError("The YuNet model download was incomplete.")
         temporary.replace(path)
+    except RecognitionError:
+        temporary.unlink(missing_ok=True)
+        raise
     except (OSError, TimeoutError) as exc:
         temporary.unlink(missing_ok=True)
         raise RecognitionError(
