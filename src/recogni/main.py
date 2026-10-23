@@ -13,6 +13,15 @@ from recogni.media import MediaMetadata, MediaValidationError, format_duration, 
 from recogni.scenes import Scene, SceneDetectionError, detect_scenes
 
 
+def format_scene_time(seconds: float) -> str:
+    """Show millisecond precision so short scene boundaries remain distinguishable."""
+    milliseconds = max(0, round(seconds * 1000))
+    hours, remainder = divmod(milliseconds, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    whole_seconds, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{millis:03d}"
+
+
 class MediaWorker(QObject):
     succeeded = Signal(object)
     failed = Signal(str)
@@ -128,7 +137,10 @@ class MainWindow(QMainWindow):
         if self._metadata is None:
             return
         self.scene_list.clear()
-        self._set_busy("Detecting scene cuts…", "Scanning locally with FFmpeg. This detects visual cuts, not character identities.")
+        self._set_busy(
+            "Detecting scene cuts…",
+            "Scanning locally with FFmpeg. This detects visual cuts, not character identities.",
+        )
         self._start_worker(
             detect_scenes, (self._metadata.path, self._metadata.duration_seconds),
             self._show_scenes,
@@ -167,8 +179,8 @@ class MainWindow(QMainWindow):
     def _show_scenes(self, scenes: list[Scene]):
         for i, scene in enumerate(scenes, 1):
             self.scene_list.addItem(
-                f"Scene {i:03d}    {format_duration(scene.start_seconds)} → "
-                f"{format_duration(scene.end_seconds)}    ({scene.duration_seconds:.2f} s)"
+                f"Scene {i:03d}    {format_scene_time(scene.start_seconds)} → "
+                f"{format_scene_time(scene.end_seconds)}    ({scene.duration_seconds:.2f} s)"
             )
         self.status.setText(f"Scene detection complete · {len(scenes)} scenes")
         self.details.setText("Review the timestamps before editing. Rapid flashes may create extra cuts.")
