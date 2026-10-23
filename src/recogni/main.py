@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 from recogni.media import MediaMetadata, MediaValidationError, format_duration, probe_video
 from recogni.scenes import Scene, SceneDetectionError, detect_scenes
+from recogni.recognition import CharacterCandidate, RecognitionError, analyze_video, write_report
 
 
 def format_scene_time(seconds: float) -> str:
@@ -34,7 +35,7 @@ class MediaWorker(QObject):
     def run(self):
         try:
             self.succeeded.emit(self.operation(*self.args))
-        except (MediaValidationError, SceneDetectionError) as exc:
+        except (MediaValidationError, SceneDetectionError, RecognitionError) as exc:
             self.failed.emit(str(exc))
         except Exception:
             self.failed.emit("An unexpected error occurred. Please try again.")
@@ -51,6 +52,7 @@ class MainWindow(QMainWindow):
         self._thread = None
         self._worker = None
         self._metadata: MediaMetadata | None = None
+        self._scenes: list[Scene] = []
 
         root = QWidget()
         root.setObjectName("root")
@@ -82,10 +84,15 @@ class MainWindow(QMainWindow):
         self.analyze_button.setObjectName("secondaryButton")
         self.analyze_button.setEnabled(False)
         self.analyze_button.clicked.connect(self.analyze_scenes)
+        self.recognize_button = QPushButton("Find character candidates")
+        self.recognize_button.setObjectName("secondaryButton")
+        self.recognize_button.setEnabled(False)
+        self.recognize_button.clicked.connect(self.analyze_characters)
         hero_layout.addWidget(self.status)
         hero_layout.addWidget(self.details)
         hero_layout.addWidget(self.select_button)
         hero_layout.addWidget(self.analyze_button)
+        hero_layout.addWidget(self.recognize_button)
 
         heading = QLabel("Detected scenes")
         heading.setObjectName("sectionTitle")
@@ -128,7 +135,9 @@ class MainWindow(QMainWindow):
         if not path:
             return
         self._metadata = None
+        self._scenes = []
         self.scene_list.clear()
+        self.recognize_button.setEnabled(False)
         self.analyze_button.setEnabled(False)
         self._set_busy("Validating movie…", "Reading media metadata locally.")
         self._start_worker(probe_video, (Path(path),), self._show_metadata)
@@ -146,11 +155,24 @@ class MainWindow(QMainWindow):
             self._show_scenes,
         )
 
+    def analyze_characters(self):
+        if self._metadata is None or not self._scenes:
+            return
+        self._set_busy(
+            "Finding face-based character candidates…",
+            "Sampling frames locally with OpenCV YuNet and SFace. This is experimental; review groupings before use.",
+        )
+        self._start_worker(
+            lambda: analyze_video(self._metadata.path, scenes=self._scenes),
+            (), self._show_characters,
+        )
+
     def _set_busy(self, status, details):
         self.status.setText(status)
         self.details.setText(details)
         self.select_button.setEnabled(False)
         self.analyze_button.setEnabled(False)
+        self.recognize_button.setEnabled(False)
 
     def _start_worker(self, operation, args, on_success):
         self._thread = QThread(self)
@@ -167,6 +189,7 @@ class MainWindow(QMainWindow):
 
     def _show_metadata(self, metadata: MediaMetadata):
         self._metadata = metadata
+        self._scenes = []
         fps = f"{metadata.frame_rate:.3f} fps" if metadata.frame_rate else "Unknown"
         self.status.setText("Movie validated")
         self.details.setText(
@@ -177,6 +200,7 @@ class MainWindow(QMainWindow):
         )
 
     def _show_scenes(self, scenes: list[Scene]):
+        self._scenes = scenes
         for i, scene in enumerate(scenes, 1):
             self.scene_list.addItem(
                 f"Scene {i:03d}    {format_scene_time(scene.start_seconds)} → "
@@ -184,6 +208,34 @@ class MainWindow(QMainWindow):
             )
         self.status.setText(f"Scene detection complete · {len(scenes)} scenes")
         self.details.setText("Review the timestamps before editing. Rapid flashes may create extra cuts.")
+
+    def _show_characters(self, candidates: list[CharacterCandidate]):
+        self.scene_list.clear()
+        for candidate in candidates:
+            scene_numbers = sorted({n for d in candidate.detections for n in d.scene_indices})
+            scene_text = ", ".join(str(n) for n in scene_numbers) or "none"
+            self.scene_list.addItem(
+                f"{candidate.character_id}    {len(candidate.detections)} face samples    "
+                f"{format_scene_time(candidate.first_seen_seconds)} – "
+                f"{format_scene_time(candidate.last_seen_seconds)}    scenes: {scene_text}"
+            )
+        self.status.setText(f"Candidate grouping complete · {len(candidates)} candidates")
+        self.details.setText(
+            "These are face-based visual clusters, not confirmed identities. "
+            "They may split or merge characters. Review before exporting footage."
+        )
+        if self._metadata is not None:
+            output, _ = QFileDialog.getSaveFileName(
+                self, "Save character analysis report",
+                str(self._metadata.path.with_suffix(".recogni.json")),
+                "RECOGNI report (*.json)",
+            )
+            if output:
+                try:
+                    saved = write_report(self._metadata.path, candidates, output)
+                    self.details.setText(self.details.text() + f"\nReport saved: {saved}")
+                except OSError:
+                    self._show_error("Could not save the analysis report.")
 
     def _show_error(self, message: str):
         self.status.setText("Operation failed")
@@ -193,6 +245,7 @@ class MainWindow(QMainWindow):
     def _worker_finished(self):
         self.select_button.setEnabled(True)
         self.analyze_button.setEnabled(self._metadata is not None)
+        self.recognize_button.setEnabled(self._metadata is not None and bool(self._scenes))
         self._worker = None
         self._thread = None
 

@@ -15,13 +15,17 @@ The first development milestone provides:
 - Background media inspection so the UI remains responsive.
 - Local FFmpeg scene-cut detection with a reviewable, chronological scene interval list.
 - Clear errors when media tools are missing or a file cannot be decoded.
+- Sampled-frame face detection and SFace embeddings, grouped into provisional character candidates with source timestamps and scene links.
+- Save a JSON report for manual review.
 
-**Character recognition, character grouping, scene trimming, and export are not implemented yet.** Scene cuts are visual-change estimates and may need manual review.
+Face grouping is experimental. It only covers detectable faces, may split or merge identities, and does not yet provide body tracking, scene selection, or clip export.
 
 ## Requirements
 
 - Windows 10/11 (initial target).
 - Python 3.11 or newer.
+- opencv-contrib-python and NumPy (installed as project dependencies).
+- The SFace ONNX model in models/. The small YuNet model downloads from the official OpenCV Zoo on first analysis to the local RECOGNI model cache.
 - FFmpeg/FFprobe installed and available on PATH.
 
 ## Run from source
@@ -55,6 +59,8 @@ Check FFprobe installation with:
 - **AI/ML pipeline:** pluggable local models for scene detection, person/face detection, tracking, and recurring-character grouping.
 - **Provider adapters:** optional integrations such as local Ollama or remote Gemini, clearly marked so users know when media leaves their device.
 - **Export:** chronological FFmpeg compilations with a source-timecode manifest.
+
+SFace is distributed under Apache 2.0 according to the OpenCV Zoo model directory. See docs/model-assets.md for provenance and local caching.
 
 The AI model choices will be benchmarked on realistic sample videos and ordinary CPU hardware before being treated as final. Basic media processing and export must not require a paid LLM API key.
 

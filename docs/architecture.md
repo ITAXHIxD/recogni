@@ -35,7 +35,7 @@ Keep long-running tasks outside the UI thread. Each layer should be testable ind
 2. Validate file existence, extension, readability, and actual media streams with FFprobe.
 3. Show duration, resolution, frame rate, and audio availability.
 4. Sample frames efficiently and detect scene/shot boundaries.
-5. Detect faces and people, track appearances, compute visual features, and cluster recurring character candidates across scenes.
+5. Sample frames, run YuNet face detection and SFace embeddings, and greedily group similar embeddings into provisional candidates.
 6. Associate character candidates with time ranges and expose uncertainty for human review.
 7. Let the editor rename, merge, split, add, or remove character-scene assignments.
 8. Assemble selected scenes in chronological order with configurable padding and audio behavior.
@@ -63,7 +63,7 @@ Next milestones:
 
 1. Test and harden media validation on representative files.
 2. Add frame sampling and scene-boundary detection.
-3. Benchmark local person/face detectors and embeddings on CPU.
+3. Benchmark sampled-frame face detection and embedding thresholds on CPU; current clustering is provisional.
 4. Implement character grouping and correction controls.
 5. Add scene preview/selection and verified chronological exports.
 6. Package for Windows and document model licenses, cache management, and limitations.

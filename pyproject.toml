@@ -10,6 +10,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "PySide6>=6.7,<7",
+  "opencv-contrib-python>=4.10,<5",
+  "numpy>=1.26,<3",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +24,8 @@ recogni = "recogni.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/recogni"]
+[tool.hatch.build.targets.wheel.force-include]
+"models/face_recognition_sface_2021dec.onnx" = "recogni/models/face_recognition_sface_2021dec.onnx"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
